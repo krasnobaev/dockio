@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script type="text/javascript">
+        window.onload = async function () {
+            parser = new DOMParser();
+
+            // embed svg into body
+            var svg = await fetch('/rgb.drawio.svg');
+            var svg = await svg.text();
+            var svg = parser.parseFromString(svg, 'text/html').body.childNodes[0];
+            document.body.appendChild(svg);
+
+            // extract mxfile
+            var a = document.querySelector("body > svg");
+            var mxfile_xml = a.attributes.content.value;
+            var content = mxfile_xml.substring(76, mxfile_xml.length - 19);
+            // console.log(content);
+
+            // decode mxfile contents into xml object
+            var data = atob(content);
+            var tmp = Uint8Array.from(data, c => c.charCodeAt(0));
+            var text = pako.inflateRaw(tmp, {to: 'string'});
+            var mxGraphModel = decodeURIComponent(text);
+            // console.log(mxGraphModel);
+            xml = parser.parseFromString(mxGraphModel, "text/xml");
+
+            // map mx objects data into json
+            var nodes = Array.prototype.slice.call(xml.getElementsByTagName('object'));
+            data = nodes.map(el => {
+                var geo = el.getElementsByTagName('mxGeometry')[0];
+                // console.dir(geo.attributes);
+
+                return {
+                    x: geo.attributes['x']?.nodeValue || '0',
+                    y: geo.attributes['y']?.nodeValue || '0',
+                    value: el.attributes.value.nodeValue,
+                };
+            });
+            // console.dir({data});
+
+            var styles = new Array();
+            data.forEach(el => {
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                document.getElementsByTagName('head')[0].appendChild(style);
+                styles.push(style);
+            });
+
+            var colorize = async () => {
+                data.forEach(async (el, i) => {
+                    // console.log([el.x, el.y]);
+                    var node = document.querySelector(`rect[x="${el.x}"],rect[y="${el.x}"]`);
+                    // console.dir(`https://source.unsplash.com/random/200x200?sig=${el.value}`);
+                    // var result = await fetch(`https://www.random.org/integers/?num=1&min=1&max=100&col=1&base=10&format=plain&rnd=${el.value}`);
+
+                    var r1 = await fetch('https://random-word-api.herokuapp.com/word');
+                    var r1 = await r1.text();
+                    var r2 = await fetch('https://random-word-api.herokuapp.com/word');
+                    var r2 = await r2.text();
+
+                    var q = (r1.length * r2.length) / 2;
+                    console.log(q);
+
+                    styles[i].innerHTML = `rect[x="${el.x}"][y="${el.y}"] {
+                        filter: invert(${q}%) sepia(${q}%) saturate(1352%) hue-rotate(${q}deg) brightness(119%) contrast(119%);
+                    }`;
+                });
+            };
+
+            setInterval(colorize, 1000);
+        };
+    </script>
+</head>
+<body>
+
+<h1>idrawio</h1>
+
+</body>
+</html>
