@@ -131,6 +131,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dockio"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures-channel",
+ "futures-util",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,21 +311,6 @@ checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
 dependencies = [
  "unicode-bidi",
  "unicode-normalization",
-]
-
-[[package]]
-name = "idrawio"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "futures-channel",
- "futures-util",
- "log",
- "serde",
- "serde_derive",
- "serde_json",
- "tokio",
- "tokio-tungstenite",
 ]
 
 [[package]]
