@@ -35,21 +35,13 @@ pub struct Container {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ContainerFront {
-    #[serde(rename = "Image")]
     pub image: String,
-    #[serde(rename = "Names")]
     pub names: String,
-    #[serde(rename = "Ports")]
     pub ports: String,
-    #[serde(rename = "RunningFor")]
     pub running_for: String,
-    #[serde(rename = "Size")]
     pub size: String,
-    #[serde(rename = "State")]
     pub state: String,
-    #[serde(rename = "Status")]
     pub status: String,
 }
 

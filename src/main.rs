@@ -43,7 +43,8 @@ async fn main() -> Result<(), Error> {
             let f_containers: Vec<docker::ContainerFront> = containers.iter().map(|c| {
                 c.into()
             }).collect::<Vec<_>>();
-            let msg = Message::Text(format!("{f_containers:?}"));
+            let str = serde_json::to_string(&f_containers).unwrap();
+            let msg = Message::Text(str);
 
             // broadcast to all
             let peers = peer_map.lock().unwrap();
