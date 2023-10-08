@@ -17,7 +17,9 @@ mod docker;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    console_subscriber::init();
     let _ = env_logger::try_init();
+
     let addr = env::args().nth(1).unwrap_or_else(|| "127.0.0.1:8080".to_string());
     let try_socket = TcpListener::bind(&addr).await;
     let listener = try_socket.expect("Failed to bind");
