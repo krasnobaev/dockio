@@ -89,19 +89,6 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
 
     let broadcast_incoming = incoming.try_for_each(|msg| {
         println!("Received a message from {}: {}", addr, msg.to_text().unwrap());
-        let msg = Message::Text(format!("{msg} from {}", &addr).to_owned());
-        let peers = peer_map.lock().unwrap();
-
-        // We want to broadcast the message to everyone except ourselves.
-        let broadcast_recipients =
-            peers
-                .iter()
-                .map(|(_, ws_sink)| ws_sink);
-
-        for recp in broadcast_recipients {
-            recp.unbounded_send(msg.clone()).unwrap();
-        }
-
         future::ok(())
     });
 
