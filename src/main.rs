@@ -68,7 +68,7 @@ async fn main() -> Result<(), Error> {
         while let Ok((stream, ws_addr)) = listener.accept().await {
             tokio::task::Builder::new()
                 .name(&format!("{} listener", &ws_addr))
-                .spawn(accept_connection(peer_map.clone(), stream, ws_addr)).unwrap();
+                .spawn(handle_ws(peer_map.clone(), stream, ws_addr)).unwrap();
         }
     };
 
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Error> {
 
         // And a MakeService to handle each connection...
         let make_service = make_service_fn(|_conn| async {
-            Ok::<_, Infallible>(service_fn(handle))
+            Ok::<_, Infallible>(service_fn(handle_http))
         });
 
         // Then bind and serve...
@@ -95,7 +95,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
+async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
     let ws_stream = tokio_tungstenite::accept_async(stream)
         .await
         .expect("Error during the websocket handshake occurred");
@@ -104,10 +104,10 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
 
-    let msg = Message::Text(format!("ehlo, {}", addr));
-    if let Err(e) = tx.unbounded_send(msg) {
-        log::error!("{}", e);
-    }
+    // let msg = Message::Text(format!("ehlo, {}", addr));
+    // if let Err(e) = tx.unbounded_send(msg) {
+    //     log::error!("{}", e);
+    // }
 
     peer_map.lock().unwrap().insert(addr, tx);
 
@@ -150,7 +150,7 @@ fn get_status_message() -> Message {
     Message::Text(str)
 }
 
-async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+async fn handle_http(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     log::debug!("{req:?}");
 
     let (parts, _body) = req.into_parts();

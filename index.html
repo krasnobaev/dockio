@@ -26,7 +26,7 @@
             var tmp = Uint8Array.from(data, c => c.charCodeAt(0));
             var text = pako.inflateRaw(tmp, {to: 'string'});
             var mxGraphModel = decodeURIComponent(text);
-            // console.log(mxGraphModel);
+            console.log(mxGraphModel);
             xml = parser.parseFromString(mxGraphModel, "text/xml");
 
             // map mx objects data into json
