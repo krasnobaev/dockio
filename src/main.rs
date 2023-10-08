@@ -64,9 +64,12 @@ async fn main() -> Result<(), Error> {
         }
     };
 
+    // websocket client listeners
     let ws_run_loop = async {
         while let Ok((stream, addr)) = listener.accept().await {
-            tokio::spawn(accept_connection(peer_map.clone(), stream, addr));
+            tokio::task::Builder::new()
+                .name(&format!("{} listener", &addr))
+                .spawn(accept_connection(peer_map.clone(), stream, addr)).unwrap();
         }
     };
 
