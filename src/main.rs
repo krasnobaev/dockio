@@ -1,7 +1,6 @@
 use std::{env, io::Error, net::SocketAddr, sync::{Arc, Mutex}, collections::HashMap};
 
 use futures_util::{future, StreamExt, TryStreamExt, pin_mut};
-use log::info;
 use tokio::{
     net::{TcpListener, TcpStream}, time::{sleep, Duration}
 };
@@ -27,40 +26,32 @@ async fn main() -> Result<(), Error> {
 
     let peer_map = PeerMap::new(Mutex::new(HashMap::new()));
 
+    // server status reader
     let docker_run_loop = async {
         loop {
-            let output = Command::new("docker")
-                .args(["ps", "--format", "json"])
-                .output()
-                .expect("Failed to execute command");
-
-            let str = match std::str::from_utf8(&output.stdout) {
-                Ok(v) => v,
-                Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-            };
-            let containers = str.lines().map(|row| {
-                let deserialized: docker::Container = serde_json::from_str(&row).unwrap();
-                deserialized
-            }).collect::<Vec<_>>();
-            let f_containers: Vec<docker::ContainerFront> = containers.iter().map(|c| {
-                c.into()
-            }).collect::<Vec<_>>();
-            let str = serde_json::to_string(&f_containers).unwrap();
-            let msg = Message::Text(str);
+            sleep(Duration::from_millis(3000)).await;
 
             // broadcast to all
             let peers = peer_map.lock().unwrap();
             let broadcast_recipients = peers
                 .iter()
                 .map(|(_, ws_sink)| ws_sink);
-            println!("transmit ({}) to all ({})", msg, broadcast_recipients.len());
-            for recipient in broadcast_recipients {
-                if let Err(e) = recipient.unbounded_send(msg.clone()) {
-                    println!("{}", e);
-                }
-            }
+            let n_listeners = broadcast_recipients.len();
 
-            sleep(Duration::from_millis(3000)).await;
+            if n_listeners > 0 {
+                let msg = get_status_message();
+
+                log::trace!("transmit server status ({}) to ({}) subscribers", msg, n_listeners);
+                println!("transmit server status ({}) to subscribers", n_listeners);
+
+                for recipient in broadcast_recipients {
+                    if let Err(e) = recipient.unbounded_send(msg.clone()) {
+                        println!("{}", e);
+                    }
+                }
+            } else {
+                println!("no listeners, skip message dispatch");
+            }
         }
     };
 
@@ -108,4 +99,27 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
 
     println!("{} disconnected", &addr);
     peer_map.lock().unwrap().remove(&addr);
+}
+
+fn get_status_message() -> Message {
+    // docker ps --format json
+    let output = Command::new("docker")
+        .args(["ps", "--format", "json"])
+        .output()
+        .expect("Failed to execute command");
+
+    let str = match std::str::from_utf8(&output.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+    let containers = str.lines().map(|row| {
+        let deserialized: docker::Container = serde_json::from_str(&row).unwrap();
+        deserialized
+    }).collect::<Vec<_>>();
+    let f_containers: Vec<docker::ContainerFront> = containers.iter().map(|c| {
+        c.into()
+    }).collect::<Vec<_>>();
+
+    let str = serde_json::to_string(&f_containers).unwrap();
+    Message::Text(str)
 }
