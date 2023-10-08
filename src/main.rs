@@ -83,6 +83,12 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
 
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
+
+    let msg = Message::Text(format!("ehlo, {}", addr));
+    if let Err(e) = tx.unbounded_send(msg) {
+        println!("{}", e);
+    }
+
     peer_map.lock().unwrap().insert(addr, tx);
 
     let (outgoing, incoming) = ws_stream.split();
