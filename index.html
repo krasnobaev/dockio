@@ -10,7 +10,7 @@
             parser = new DOMParser();
 
             // embed svg into body
-            var svg = await fetch('/rgb.drawio.svg');
+            var svg = await fetch('/dia.drawio.svg');
             var svg = await svg.text();
             var svg = parser.parseFromString(svg, 'text/html').body.childNodes[0];
             document.body.appendChild(svg);
@@ -57,7 +57,7 @@
 
         async function run_websocket () {
             // Create WebSocket connection.
-            const socket = new WebSocket("ws://localhost:8080");
+            const socket = new WebSocket("ws://localhost:8081");
 
             socket.addEventListener("open", (event) => {
                 console.log("Connection Established");

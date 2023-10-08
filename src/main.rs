@@ -1,28 +1,31 @@
 use std::{env, io::Error, net::SocketAddr, sync::{Arc, Mutex}, collections::HashMap};
 
+// tokio
 use futures_util::{future, StreamExt, TryStreamExt, pin_mut};
 use tokio::{
     net::{TcpListener, TcpStream}, time::{sleep, Duration}
 };
 
+// websocket
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use tokio_tungstenite::tungstenite::protocol::Message;
 type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
 use std::process::Command;
-
 mod docker;
+
+// http
+use std::convert::Infallible;
+use hyper::{Body, Request, Response, Server};
+use hyper::service::{make_service_fn, service_fn};
+use tokio::fs::File;
+use tokio::io::AsyncReadExt; // for read_to_end()
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    console_subscriber::init();
+    // console_subscriber::init();
     let _ = env_logger::try_init();
-
-    let addr = env::args().nth(1).unwrap_or_else(|| "127.0.0.1:8080".to_string());
-    let try_socket = TcpListener::bind(&addr).await;
-    let listener = try_socket.expect("Failed to bind");
-    println!("Listening on: {}", addr);
 
     let peer_map = PeerMap::new(Mutex::new(HashMap::new()));
 
@@ -42,29 +45,52 @@ async fn main() -> Result<(), Error> {
                 let msg = get_status_message();
 
                 log::trace!("transmit server status ({}) to ({}) subscribers", msg, n_listeners);
-                println!("transmit server status ({}) to subscribers", n_listeners);
+                log::info!("transmit server status ({}) to subscribers", n_listeners);
 
                 for recipient in broadcast_recipients {
                     if let Err(e) = recipient.unbounded_send(msg.clone()) {
-                        println!("{}", e);
+                        log::info!("{}", e);
                     }
                 }
             } else {
-                println!("no listeners, skip message dispatch");
+                log::info!("no listeners, skip message dispatch");
             }
         }
     };
 
     // websocket client listeners
     let ws_run_loop = async {
-        while let Ok((stream, addr)) = listener.accept().await {
+        let ws_addr = env::args().nth(1).unwrap_or_else(|| "127.0.0.1:8081".to_string());
+        let try_socket = TcpListener::bind(&ws_addr).await;
+        let listener = try_socket.expect("Failed to bind");
+        log::info!("websocket listening on: {}", ws_addr);
+
+        while let Ok((stream, ws_addr)) = listener.accept().await {
             tokio::task::Builder::new()
-                .name(&format!("{} listener", &addr))
-                .spawn(accept_connection(peer_map.clone(), stream, addr)).unwrap();
+                .name(&format!("{} listener", &ws_addr))
+                .spawn(accept_connection(peer_map.clone(), stream, ws_addr)).unwrap();
         }
     };
 
-    tokio::join!(docker_run_loop, ws_run_loop);
+    let http_run_loop = async {
+        let http_addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+
+        // And a MakeService to handle each connection...
+        let make_service = make_service_fn(|_conn| async {
+            Ok::<_, Infallible>(service_fn(handle))
+        });
+
+        // Then bind and serve...
+        let server = Server::bind(&http_addr).serve(make_service);
+        log::info!("http listening on: {}", http_addr);
+
+        // And run forever...
+        if let Err(e) = server.await {
+            log::error!("server error: {}", e);
+        }
+    };
+
+    tokio::join!(docker_run_loop, ws_run_loop, http_run_loop);
 
     Ok(())
 }
@@ -73,14 +99,14 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
     let ws_stream = tokio_tungstenite::accept_async(stream)
         .await
         .expect("Error during the websocket handshake occurred");
-    println!("WebSocket connection established: {}", addr);
+    log::info!("WebSocket connection established: {}", addr);
 
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
 
     let msg = Message::Text(format!("ehlo, {}", addr));
     if let Err(e) = tx.unbounded_send(msg) {
-        println!("{}", e);
+        log::error!("{}", e);
     }
 
     peer_map.lock().unwrap().insert(addr, tx);
@@ -88,7 +114,7 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
     let (outgoing, incoming) = ws_stream.split();
 
     let broadcast_incoming = incoming.try_for_each(|msg| {
-        println!("Received a message from {}: {}", addr, msg.to_text().unwrap());
+        log::info!("Received a message from {}: {}", addr, msg.to_text().unwrap());
         future::ok(())
     });
 
@@ -97,7 +123,7 @@ async fn accept_connection(peer_map: PeerMap, stream: TcpStream, addr: SocketAdd
     pin_mut!(broadcast_incoming, receive_from_others);
     future::select(broadcast_incoming, receive_from_others).await;
 
-    println!("{} disconnected", &addr);
+    log::info!("{} disconnected", &addr);
     peer_map.lock().unwrap().remove(&addr);
 }
 
@@ -122,4 +148,41 @@ fn get_status_message() -> Message {
 
     let str = serde_json::to_string(&f_containers).unwrap();
     Message::Text(str)
+}
+
+async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    log::debug!("{req:?}");
+
+    let (parts, _body) = req.into_parts();
+    let response = match parts.uri.path() {
+        "/" | "/index.html" => {
+            let index_html = read_file("index.html").await;
+            Response::builder()
+                .body(Body::from(index_html))
+                .unwrap()
+        },
+        "/dia.drawio.svg" => {
+            let index_html = read_file("dia.drawio.svg").await;
+            Response::builder()
+                .body(Body::from(index_html))
+                .unwrap()
+        },
+        _ => {
+            Response::builder()
+              .status(hyper::StatusCode::NOT_FOUND)
+              .body(Body::from("not found"))
+              .unwrap()
+        },
+    };
+
+    Ok(response)
+
+}
+
+async fn read_file(path: &str) -> Vec<u8> {
+    let mut file = File::open(path).await.unwrap();
+    let mut contents = vec![];
+    file.read_to_end(&mut contents).await.unwrap();
+
+    contents
 }
