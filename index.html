@@ -73,15 +73,18 @@
                 containers = JSON.parse(event.data);
                 containers.map(el => {
                     // console.log(`fill ${el.names} with colour`);
-
                     var cname = el.names;
-                    var {x, y, status} = nodes[cname];
 
-                    var q = el.state === 'running' ? 100 : 2;
+                    if (Object.keys(nodes).indexOf(cname) === -1) {
+                        console.warn(`container ${cname} not found in server response`);
+                    } else {
+                        var {x, y, status} = nodes[cname];
+                        var q = el.state === 'running' ? 100 : 2;
 
-                    styles[cname].innerHTML = `rect[x="${x}"][y="${y}"] {
-                        filter: invert(${q}%) sepia(${q}%) saturate(1352%) hue-rotate(${q}deg) brightness(119%) contrast(119%);
-                    }`;
+                        styles[cname].innerHTML = `rect[x="${x}"][y="${y}"] {
+                            filter: invert(${q}%) sepia(${q}%) saturate(1352%) hue-rotate(${q}deg) brightness(119%) contrast(119%);
+                        }`;
+                    }
                 });
 
                 var diagram_nodes = Object.keys(nodes);
