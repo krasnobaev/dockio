@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./dockio-front/Cargo.toml",
+        "./Cargo.toml",
+    ]
+}
