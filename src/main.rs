@@ -104,10 +104,11 @@ async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
 
-    // let msg = Message::Text(format!("ehlo, {}", addr));
-    // if let Err(e) = tx.unbounded_send(msg) {
-    //     log::error!("{}", e);
-    // }
+    let file = read_file("dia.drawio.svg").await;
+    let msg = Message::Binary(file);
+    if let Err(e) = tx.unbounded_send(msg) {
+        log::error!("{}", e);
+    }
 
     peer_map.lock().unwrap().insert(addr, tx);
 

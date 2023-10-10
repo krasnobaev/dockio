@@ -4,4 +4,8 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-yew = { version="0.20.0", features=["csr"] }
+futures = "0.3"
+wasm-bindgen-futures = "0.4"
+yew = { version = "0.21.0", features = ["csr"] }
+gloo-net = "0.4.0"
+gloo-console = "0.3.0"
