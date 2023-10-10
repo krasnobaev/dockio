@@ -156,15 +156,15 @@ async fn handle_http(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let (parts, _body) = req.into_parts();
     let response = match parts.uri.path() {
         "/" | "/index.html" => {
-            let index_html = read_file("index.html").await;
+            let file = read_file("index.html").await;
             Response::builder()
-                .body(Body::from(index_html))
+                .body(Body::from(file))
                 .unwrap()
         },
         "/dia.drawio.svg" => {
-            let index_html = read_file("dia.drawio.svg").await;
+            let file = read_file("dia.drawio.svg").await;
             Response::builder()
-                .body(Body::from(index_html))
+                .body(Body::from(file))
                 .unwrap()
         },
         _ => {
