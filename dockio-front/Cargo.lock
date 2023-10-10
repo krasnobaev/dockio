@@ -989,9 +989,11 @@ name = "trunk-template"
 version = "0.0.1"
 dependencies = [
  "futures",
+ "gloo 0.10.0",
  "gloo-console 0.3.0",
  "gloo-net 0.4.0",
  "wasm-bindgen-futures",
+ "web-sys",
  "yew",
 ]
 
