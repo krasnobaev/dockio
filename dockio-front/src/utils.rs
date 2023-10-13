@@ -1,10 +1,12 @@
-use gloo_console::log;
+use gloo::console::log;
 
 use base64::{Engine as _, engine::general_purpose};
 use flate2::read::DeflateDecoder;
 use std::io::prelude::*;
 use js_sys::decode_uri_component;
 use web_sys::{DomParser, SupportedType, Element};
+
+use crate::model;
 
 pub fn parse_mxfile_content (bytes: Vec<u8>) -> (Element, crate::model::Nodes) {
     let dia = String::from_utf8(bytes).unwrap();
@@ -33,7 +35,7 @@ pub fn parse_mxfile_content (bytes: Vec<u8>) -> (Element, crate::model::Nodes) {
     let mx = xml_doc.get_elements_by_tag_name("object");
     log!(format!("mx {:?}", mx.length()));
 
-    let mut nodes = crate::model::Nodes(std::collections::HashMap::new());
+    let mut nodes = model::Nodes(std::collections::HashMap::new());
     for i in 0..mx.length() {
         let item = mx.item(i).unwrap();
 
@@ -43,9 +45,12 @@ pub fn parse_mxfile_content (bytes: Vec<u8>) -> (Element, crate::model::Nodes) {
         let value = item.get_attribute("value").unwrap_or("".to_owned());
         let cname = item.get_attribute("cname").unwrap_or("".to_owned());
 
-        let tuple = (x, y, value, &cname);
-        log!(format!("tuple {:?}", tuple));
-        nodes.0.insert((x, y), cname);
+        nodes.0.insert(cname.clone(), model::Node {
+            x,
+            y,
+            value,
+            cname,
+        });
     }
 
     (svg_body, nodes)
