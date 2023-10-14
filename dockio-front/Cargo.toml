@@ -10,6 +10,7 @@ web-sys = { version = "0.3.64", features = ["DomParser", "Document", "SupportedT
 js-sys = "0.3.64"
 yew = { version = "0.21.0", features = ["csr"] }
 gloo = { version = "0.10.0", features = ["console", "net", "utils"]}
+
 base64 = "0.21.4"
 flate2 = "1.0.27"
 serde = "1.0.188"

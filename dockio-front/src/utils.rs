@@ -32,16 +32,16 @@ pub fn parse_mxfile_content(bytes: Vec<u8>) -> Option<(Element, crate::model::No
         let mx_data = mxfile_tag.body().unwrap().children().item(0).unwrap().text_content().unwrap();
         debug!(format!("mx_data {:?}", mx_data));
 
-    // decode mxfile contents into xml object
+        // decode mxfile contents into xml object
         let bytes = general_purpose::STANDARD.decode(mx_data).unwrap();
-    let mut decoder = DeflateDecoder::new(bytes.as_slice());
-    let mut text = String::new();
-    decoder.read_to_string(&mut text).unwrap();
+        let mut decoder = DeflateDecoder::new(bytes.as_slice());
+        let mut text = String::new();
+        decoder.read_to_string(&mut text).unwrap();
         text
     };
 
     let text = decode_uri_component(&text).unwrap().as_string().unwrap();
-    debug!(format!("content {:?}", text));
+    debug!(format!("content {:?}", text.replace("\n", "")));
     let xml_doc = parser
         .parse_from_string(&text, SupportedType::TextHtml)
         .unwrap();
@@ -54,21 +54,62 @@ pub fn parse_mxfile_content(bytes: Vec<u8>) -> Option<(Element, crate::model::No
 
     let mut nodes = model::Nodes(std::collections::HashMap::new());
     for i in 0..mx.length() {
-        let item = mx.item(i).unwrap();
+        let object = mx.item(i).unwrap();
+        let mx_cell = object.get_elements_by_tag_name("mxCell").item(0).unwrap();
+        let mx_geo = object.get_elements_by_tag_name("mxGeometry").item(0).unwrap();
 
-        let geo = item.get_elements_by_tag_name("mxGeometry").item(0).unwrap();
-        let x = geo.get_attribute("x").unwrap_or("0".to_owned()).parse().unwrap();
-        let y = geo.get_attribute("y").unwrap_or("0".to_owned()).parse().unwrap();
-        let value = item.get_attribute("value").unwrap_or("".to_owned());
-        let cname = item.get_attribute("cname").unwrap_or("".to_owned());
+        let x = mx_geo
+            .get_attribute("x")
+            .unwrap_or("0".to_owned())
+            .parse()
+            .unwrap();
+        let y = mx_geo
+            .get_attribute("y")
+            .unwrap_or("0".to_owned())
+            .parse()
+            .unwrap();
+        let value = object.get_attribute("value").unwrap_or("".to_owned());
+        let mut cname = object.get_attribute("cname").unwrap_or("".to_owned());
+        let server = object.get_attribute("server").unwrap_or("".to_owned());
 
-        nodes.0.insert(cname.clone(), model::Node {
-            x,
-            y,
-            value,
-            cname,
-        });
+        // extract conainer id from rotation attribute '0.00101' => 1
+        let cid = parse_cid_from_svg_rotation(mx_cell
+            .get_attribute("style")
+            .unwrap_or("".to_owned()));
+
+        let orchestrator = if let Some(sname) = object.get_attribute("sname") {
+            cname = sname;
+            model::Orchestrator::SystemD
+        } else {
+            model::Orchestrator::Docker
+        };
+
+        nodes
+            .0
+            .insert(model::NodeKey(cname.clone(), server.clone()), model::Node {
+                x,
+                y,
+                value,
+                cname,
+                cid,
+                orchestrator,
+                server,
+            });
     }
 
-    (svg_body, nodes)
+    Some((svg_body, nodes))
+}
+
+pub fn parse_cid_from_svg_rotation(rotation: String) -> u16 {
+    rotation
+        .split(";")
+        .find_map(|s| s.strip_prefix("rotation="))
+        .and_then(|s| s.split(".").last())
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(0) % 1000 / 10
+}
+
+// assuming cid is any integer
+pub fn cid_into_css_selector<T: std::fmt::Display>(cid: T) -> String {
+    format!(":has(+ g[transform*='0.001{:02}9'])", cid)
 }

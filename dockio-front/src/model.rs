@@ -2,15 +2,21 @@ use std::collections::HashMap;
 
 use serde_derive::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NodeKey(pub String, pub String);
+
 #[derive(Debug, Clone)]
-pub struct Nodes(pub HashMap<String, Node>);
+pub struct Nodes(pub HashMap<NodeKey, Node>);
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub x: u16,
-    pub y: u16,
+    pub x: i16,
+    pub y: i16,
     pub value: String,
     pub cname: String,
+    pub cid: u16,
+    pub orchestrator: Orchestrator,
+    pub server: String,
 }
 
 pub type Containers = Vec<Container>;
@@ -26,4 +32,10 @@ pub struct Container {
     pub size: String,
     pub state: String,
     pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Orchestrator {
+    SystemD,
+    Docker,
 }
