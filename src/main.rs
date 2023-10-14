@@ -60,7 +60,10 @@ async fn main() -> Result<(), Error> {
 
     // websocket client listeners
     let ws_run_loop = async {
-        let ws_addr = env::args().nth(1).unwrap_or_else(|| "127.0.0.1:8081".to_string());
+        let ws_addr = env::args().nth(1).unwrap_or_else(||
+            "0.0.0.0:8081".to_string()
+            // "127.0.0.1:8081".to_string()
+        );
         let try_socket = TcpListener::bind(&ws_addr).await;
         let listener = try_socket.expect("Failed to bind");
         log::info!("websocket listening on: {}", ws_addr);
@@ -105,6 +108,7 @@ async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
     let (tx, rx) = unbounded();
 
     let file = read_file("dia.drawio.svg").await;
+    // let file = read_file("/home/sypwex/prj/ubsl/ccompliance/doc/asset/servers.drawio.svg").await;
     let msg = Message::Binary(file);
     if let Err(e) = tx.unbounded_send(msg) {
         log::error!("{}", e);
@@ -131,7 +135,11 @@ async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
 fn get_status_message() -> Message {
     // docker ps --format json
     let output = Command::new("docker")
-        .args(["ps", "--format", "json"])
+        .arg("ps")
+        .arg("--no-trunc")
+        .arg("--format")
+        // .arg("json") // Docker 21+
+        .arg("{{json .}}") // Docker 20 workaround
         .output()
         .expect("Failed to execute command");
 
@@ -140,6 +148,7 @@ fn get_status_message() -> Message {
         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
     };
     let containers = str.lines().map(|row| {
+        // log::debug!("row: {}", row);
         let deserialized: docker::Container = serde_json::from_str(&row).unwrap();
         deserialized
     }).collect::<Vec<_>>();
