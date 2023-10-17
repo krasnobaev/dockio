@@ -26,6 +26,8 @@ use tokio::io::AsyncReadExt; // for read_to_end()
 async fn main() -> Result<(), Error> {
     // console_subscriber::init();
     let _ = env_logger::try_init();
+    log::info!("======================");
+    log::info!("starting dockio server");
 
     let peer_map = PeerMap::new(Mutex::new(HashMap::new()));
 
