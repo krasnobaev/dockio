@@ -1,0 +1,21 @@
+[Unit]
+Description=Dockio monitoring
+After=network.target
+StartLimitIntervalSec=3s
+StartLimitBurst=2
+
+[Service]
+Environment=RUST_LOG=debug
+WorkingDirectory=/opt/dockio
+Type=simple
+Restart=always
+RestartSec=5
+User=dockio
+ExecStartPre=
+ExecStart=/opt/dockio/dockio
+ExecStartPost=
+ExecStop=
+ExecReload=
+
+[Install]
+WantedBy=multi-user.target
