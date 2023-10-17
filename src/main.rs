@@ -78,7 +78,7 @@ async fn main() -> Result<(), Error> {
     };
 
     let http_run_loop = async {
-        let http_addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+        let http_addr = SocketAddr::from(([0, 0, 0, 0], 8080));
 
         // And a MakeService to handle each connection...
         let make_service = make_service_fn(|_conn| async {
