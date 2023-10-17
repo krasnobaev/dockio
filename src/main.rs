@@ -186,6 +186,31 @@ async fn handle_http(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         "/" | "/index.html" => {
             let file = read_file("index.html").await;
             Response::builder()
+                .header("Content-Type", "text/html")
+                .body(Body::from(file))
+                .unwrap()
+        },
+        // match *.css
+        path if path.ends_with(".css") => {
+            let file = read_file(&path[1..]).await;
+            Response::builder()
+                .header("Content-Type", "text/css")
+                .body(Body::from(file))
+                .unwrap()
+        },
+        // match *.js
+        path if path.ends_with(".js") => {
+            let file = read_file(&path[1..]).await;
+            Response::builder()
+                .header("Content-Type", "text/javascript")
+                .body(Body::from(file))
+                .unwrap()
+        },
+        // match *.wasm
+        path if path.ends_with(".wasm") => {
+            let file = read_file(&path[1..]).await;
+            Response::builder()
+                .header("Content-Type", "application/wasm")
                 .body(Body::from(file))
                 .unwrap()
         },
