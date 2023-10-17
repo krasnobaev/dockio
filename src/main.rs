@@ -119,7 +119,23 @@ async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
     let (outgoing, incoming) = ws_stream.split();
 
     let broadcast_incoming = incoming.try_for_each(|msg| {
-        log::info!("Received a message from {}: {}", addr, msg.to_text().unwrap());
+        match msg.to_text() {
+            Ok(msg) => {
+                log::info!("Received a command from {}: {}", addr, msg);
+
+                match msg {
+                    "Terminate" => {
+                        log::warn!("Terminating main process");
+                        std::process::exit(0);
+                    },
+                    _ => {
+                        log::warn!("unknown command: {}", msg);
+                    },
+                }
+            },
+            Err(_) => todo!(),
+        }
+
         future::ok(())
     });
 
