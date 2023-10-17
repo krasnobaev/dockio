@@ -128,7 +128,17 @@ async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
                 match msg {
                     "Terminate" => {
                         log::warn!("Terminating main process");
-                        std::process::exit(0);
+
+                        for (addr, tx) in peer_map.lock().unwrap().iter() {
+                            log::warn!("Terminating peer {}", addr);
+                            tx.unbounded_send(Message::Text("Terminated".to_owned())).unwrap();
+                        }
+
+                        tokio::spawn(async move {
+                            sleep(Duration::from_secs(1)).await;
+
+                            std::process::exit(0);
+                        });
                     },
                     _ => {
                         log::warn!("unknown command: {}", msg);

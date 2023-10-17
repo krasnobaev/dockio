@@ -19,6 +19,7 @@ pub enum Msg {
     UpdateNodes(model::Nodes),
     Disconnected,
     UpdateStyles(model::Containers, String),
+    ServerAsksForRestart,
 }
 
 pub struct App {
@@ -36,7 +37,8 @@ impl Component for App {
 
         spawn_local(async move {
             loop {
-                let ws = WebSocket::open("ws://localhost:8081").unwrap();
+                let hostname = web_sys::window().unwrap().location().hostname().unwrap();
+                let ws = WebSocket::open(&format!("ws://{hostname}:8081")).unwrap();
                 let (_write, mut read) = ws.split();
 
                 while let Some(msg) = read.next().await {
@@ -53,9 +55,18 @@ impl Component for App {
                             }
                         },
                         Ok(Message::Text(text)) => {
-                            let containers: model::Containers = serde_json::from_str(&text).unwrap();
-                            debug!(format!("received text message: {:?}", containers));
-                            ctx_copy.send_message(Msg::UpdateStyles(containers, "localhost".to_owned()));
+                            match text.as_str() {
+                                "Terminated" => {
+                                    warn!("Terminated");
+                                    ctx_copy.send_message(Msg::ServerAsksForRestart);
+                                    break;
+                                },
+                                _ => {
+                                    let containers: model::Containers = serde_json::from_str(&text).unwrap();
+                                    debug!(format!("received text message: {:?}", containers));
+                                    ctx_copy.send_message(Msg::UpdateStyles(containers, hostname.to_owned()));
+                                },
+                            }
                         },
                         Err(err) => {
                             warn!(format!("websocket error: {:?}", err));
@@ -161,6 +172,14 @@ impl Component for App {
 
                 self.styles = HashMap::new();
             },
+            Msg::ServerAsksForRestart => {
+                info!("ServerAsksForRestart");
+
+                spawn_local(async move {
+                    sleep(Duration::from_secs(2)).await;
+                    web_sys::window().unwrap().location().reload().unwrap();
+                })
+            }
         }
 
         true
