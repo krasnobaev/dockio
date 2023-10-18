@@ -1,6 +1,8 @@
 mod app;
 mod model;
 mod utils;
+mod components;
+mod styles;
 
 use app::App;
 

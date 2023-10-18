@@ -73,7 +73,7 @@ pub fn parse_mxfile_content(bytes: Vec<u8>) -> Option<(Element, crate::model::No
         let server = object.get_attribute("server").unwrap_or("".to_owned());
 
         // extract conainer id from rotation attribute '0.00101' => 1
-        let cid = parse_cid_from_svg_rotation(mx_cell
+        let cid = parse_cid_from_mxfile_rotation(mx_cell
             .get_attribute("style")
             .unwrap_or("".to_owned()));
 
@@ -100,10 +100,22 @@ pub fn parse_mxfile_content(bytes: Vec<u8>) -> Option<(Element, crate::model::No
     Some((svg_body, nodes))
 }
 
-pub fn parse_cid_from_svg_rotation(rotation: String) -> u16 {
+// container id <--> (mxfile/svg attribute / CSSSelector) transformation
+
+pub fn parse_cid_from_mxfile_rotation(rotation: String) -> u16 {
     rotation
         .split(";")
         .find_map(|s| s.strip_prefix("rotation="))
+        .and_then(|s| s.split(".").last())
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(0) % 1000 / 10
+}
+
+pub fn parse_cid_from_svg_rotation(rotation: String) -> u16 {
+    rotation
+        .split("rotate")
+        .find_map(|s| s.strip_prefix("("))
+        .and_then(|s| s.split(" ").nth(0))
         .and_then(|s| s.split(".").last())
         .and_then(|s| s.parse::<u16>().ok())
         .unwrap_or(0) % 1000 / 10

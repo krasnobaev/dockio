@@ -2,6 +2,7 @@
 
 deploy() {
   echo "Deploying... to ${TARGET_SERVER} as ${SERVER_USER}"
+  set -e
 
   cargo build --target x86_64-unknown-linux-musl --release
   cd dockio-front && trunk build --release && cd ..
