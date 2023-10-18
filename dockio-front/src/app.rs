@@ -5,7 +5,7 @@ use std::vec;
 use web_sys::Element;
 use yew::platform::time::sleep;
 use yew::prelude::*;
-use gloo::console::{error, warn, info, log, debug, trace};
+use gloo::console::{error, warn, info, log, debug};
 
 use gloo::net::websocket::{Message, futures::WebSocket};
 use wasm_bindgen::prelude::*;
@@ -125,12 +125,7 @@ impl Component for App {
                     .query_selector_all("rect")
                     .expect("Failed to query for rect nodes");
 
-                let show_tooltip = |e: web_sys::MouseEvent| {
-                    let target = e.target().unwrap();
-                    let target_element = target.dyn_into::<web_sys::SvgRectElement>().unwrap();
-                    let x = target_element.get_attribute("x").unwrap_or("".to_owned());
-                    let y = target_element.get_attribute("y").unwrap_or("".to_owned());
-
+                let show_tooltip = |x: String, y: String| move |_e: web_sys::MouseEvent| {
                     // let sibling = target_element.next_sibling().unwrap().dyn_into::<web_sys::Element>().unwrap();
                     // let rotate = sibling.get_attribute("transform").unwrap_or("".to_owned());
                     // error!(format!("evt {x} {y}, {rotate}"));
@@ -150,10 +145,21 @@ impl Component for App {
                 for i in 0..rects.length() {
                     let rect = rects.item(i).unwrap();
 
+                    let r = rect.clone().dyn_into::<web_sys::SvgRectElement>().unwrap();
+                    let x = r.get_attribute("x").unwrap();
+                    let y = r.get_attribute("y").unwrap();
+                    error!(format!("rect {x} {y}"));
+                    let text_div = svg_container.query_selector(&format!("[x='{x}'][y='{y}'] + g > switch > foreignObject > div > div > div")).unwrap().unwrap();
+
+                    let show_tooltip = show_tooltip(x, y);
                     let listener_show = Closure::<dyn Fn(MouseEvent)>::wrap(Box::new(show_tooltip));
                     let listener_hide = Closure::<dyn Fn(MouseEvent)>::wrap(Box::new(hide_tooltip));
 
                     rect.add_event_listener_with_callback(
+                        "mousemove",
+                        listener_show.as_ref().unchecked_ref(),
+                    ).unwrap();
+                    text_div.add_event_listener_with_callback(
                         "mousemove",
                         listener_show.as_ref().unchecked_ref(),
                     ).unwrap();
@@ -207,7 +213,7 @@ impl Component for App {
                             filter: invert({}%) sepia({}%) saturate(1352%) hue-rotate({}deg) brightness(119%) contrast(119%);
                         }}"#, selector, q, q, q));
 
-                        trace!(format!("{:?} {:?}", key, container.clone()));
+                        info!(format!("{:?} {:?}", key, container.clone()));
                         self.cur_state.insert(key, container.clone());
                     } else {
                         debug!(format!("container {} found in server response, but not on diagram", cname.clone()));
@@ -229,7 +235,7 @@ impl Component for App {
                             filter: brightness(11%) contrast(11%);
                         }}"#, utils::cid_into_css_selector(cid)));
                     } else {
-                        warn!(format!("container {} not found in server response, but on diagram", cname.clone()));
+                        info!(format!("container {} not found in server response, but on diagram", cname.clone()));
                     }
                 });
 
@@ -260,7 +266,7 @@ impl Component for App {
                 let tooltip = document.get_element_by_id("tooltip").unwrap();
                 let x = tooltip.get_attribute("x").unwrap();
                 let y = tooltip.get_attribute("y").unwrap();
-                trace!(format!("evt {x} {y}"));
+                info!(format!("evt {x} {y}"));
 
                 if x == "0" && y == "0" {
                     return true;
@@ -271,7 +277,7 @@ impl Component for App {
                 // read transform attribute
                 let transform = node.get_attribute("transform").unwrap_or("".to_owned());
                 let id = utils::parse_cid_from_svg_rotation(transform);
-                trace!(format!("id {}", id));
+                info!(format!("id {}", id));
 
                 let cname = self.dia_nodes.0.iter().find_map(|(key, node)| {
                     if node.cid == id {
@@ -282,7 +288,7 @@ impl Component for App {
                 }).unwrap_or("".to_owned());
 
                 if let Some(text) = self.cur_state.get(&model::NodeKey(cname, "ccdev.bdo.ru".to_owned())) {
-                    trace!(format!("text {} -> {:?}", id, text));
+                    info!(format!("text {} -> {:?}", id, text));
                     self.tooltip_text = format!("{:#?}", text);
                 } else {
                     self.tooltip_text = String::new();
