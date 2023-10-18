@@ -3,7 +3,7 @@ use gloo::console::{debug, log, info};
 use base64::{engine::general_purpose, Engine as _};
 use flate2::read::DeflateDecoder;
 use js_sys::decode_uri_component;
-use std::io::prelude::*;
+use std::{io::prelude::*, str::FromStr};
 use web_sys::{DomParser, Element, SupportedType};
 
 use crate::model;
@@ -56,44 +56,37 @@ pub fn parse_mxfile_content(bytes: Vec<u8>) -> Option<(Element, crate::model::No
     for i in 0..mx.length() {
         let object = mx.item(i).unwrap();
         let mx_cell = object.get_elements_by_tag_name("mxCell").item(0).unwrap();
-        let mx_geo = object.get_elements_by_tag_name("mxGeometry").item(0).unwrap();
 
-        let x = mx_geo
-            .get_attribute("x")
-            .unwrap_or("0".to_owned())
-            .parse()
-            .unwrap();
-        let y = mx_geo
-            .get_attribute("y")
-            .unwrap_or("0".to_owned())
-            .parse()
-            .unwrap();
-        let value = object.get_attribute("value").unwrap_or("".to_owned());
-        let mut cname = object.get_attribute("cname").unwrap_or("".to_owned());
-        let server = object.get_attribute("server").unwrap_or("".to_owned());
+        let r#type = object.get_attribute("type");
+        let tname = object.get_attribute("tname");
+        let server = object.get_attribute("server");
 
-        // extract conainer id from rotation attribute '0.00101' => 1
+        let r#type = match model::DrawioNodeType::from_str(&r#type.unwrap_or("".to_owned())) {
+            Ok(v) => v,
+            Err(_) => {
+                info!(format!(
+                    "skip node parse with index {i} and values: type {:?}, tname {:?}, server {:?}",
+                    "None", tname, server
+                ));
+
+                continue;
+            },
+        };
+
+        let tname = tname.unwrap_or("".to_owned());
+        let server = server.unwrap_or("".to_owned());
+
         let cid = parse_cid_from_mxfile_rotation(mx_cell
             .get_attribute("style")
             .unwrap_or("".to_owned()));
 
-        let orchestrator = if let Some(sname) = object.get_attribute("sname") {
-            cname = sname;
-            model::Orchestrator::SystemD
-        } else {
-            model::Orchestrator::Docker
-        };
-
         nodes
             .0
-            .insert(model::NodeKey(cname.clone(), server.clone()), model::Node {
-                x,
-                y,
-                value,
-                cname,
+            .insert(model::NodeKey(tname.clone(), server.clone()), model::DrawioNode {
+                tname: tname,
                 cid,
-                orchestrator,
                 server,
+                r#type,
             });
     }
 

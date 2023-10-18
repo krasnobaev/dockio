@@ -6,6 +6,7 @@ use web_sys::Element;
 use yew::platform::time::sleep;
 use yew::prelude::*;
 use gloo::console::{error, warn, info, log, debug};
+use gloo::storage::{SessionStorage, Storage};
 
 use gloo::net::websocket::{Message, futures::WebSocket};
 use wasm_bindgen::prelude::*;
@@ -16,7 +17,9 @@ use super::utils;
 use super::model;
 use super::components::Tooltip;
 
-// const KEY_DEBUG_CUR_STATE_SESSION_STORAGE: &'static str = "cur_state";
+#[cfg(debug_assertions)]
+const KEY_DEBUG_CUR_STATE_SESSION_STORAGE: &'static str = "cur_state";
+const KEY_DEBUG_DIA_NODES_SESSION_STORAGE: &'static str = "dia_nodes";
 
 pub enum Msg {
     UpdateDiagram(Element),
@@ -148,7 +151,7 @@ impl Component for App {
                     let r = rect.clone().dyn_into::<web_sys::SvgRectElement>().unwrap();
                     let x = r.get_attribute("x").unwrap();
                     let y = r.get_attribute("y").unwrap();
-                    error!(format!("rect {x} {y}"));
+                    info!(format!("rect {x} {y}"));
                     let text_div = svg_container.query_selector(&format!("[x='{x}'][y='{y}'] + g > switch > foreignObject > div > div > div")).unwrap().unwrap();
 
                     let show_tooltip = show_tooltip(x, y);
@@ -193,30 +196,35 @@ impl Component for App {
                     let style = gloo::utils::document().create_element("style").unwrap();
                     style.set_attribute("type", "text/css").unwrap();
                     gloo::utils::document().head().unwrap().append_child(&style).unwrap();
-                    self.dia_styles.insert(model::NodeKey(node.cname.clone(), node.server.clone()), style);
+                    self.dia_styles.insert(model::NodeKey(node.tname.clone(), node.server.clone()), style);
                 });
+
+                #[cfg(debug_assertions)]
+                if let Err(e) = <SessionStorage as Storage>::set(KEY_DEBUG_DIA_NODES_SESSION_STORAGE, self.dia_nodes.clone()) {
+                    error!(format!("failed to set dia_nodes to local storage: {:?}", e));
+                }
             },
             Msg::UpdateStyles(containers, server) => {
                 containers.iter().for_each(|container| {
-                    let cname = container.names.clone();
-                    let key = model::NodeKey (cname.clone(), server.clone());
+                    let tname = container.names.clone();
+                    let key = model::NodeKey (tname.clone(), server.clone());
 
                     if self.dia_nodes.0.contains_key(&key) {
                         let node = self.dia_nodes.0.get(&key).unwrap();
-                        let model::Node {cid, ..} = node;
+                        let model::DrawioNode {cid, ..} = node;
                         let q = if container.state == "running" { 100 } else { 2 };
                         let selector = utils::cid_into_css_selector(cid);
 
                         let style = self.dia_styles.get(&key).unwrap();
                         style.set_inner_html(&format!(r#"{} {{
-                            /* container {cname} available */
+                            /* container {tname} available */
                             filter: invert({}%) sepia({}%) saturate(1352%) hue-rotate({}deg) brightness(119%) contrast(119%);
                         }}"#, selector, q, q, q));
 
                         info!(format!("{:?} {:?}", key, container.clone()));
                         self.cur_state.insert(key, container.clone());
                     } else {
-                        debug!(format!("container {} found in server response, but not on diagram", cname.clone()));
+                        debug!(format!("container {} found in server response, but not on diagram", tname.clone()));
                     }
                 });
 
@@ -226,20 +234,23 @@ impl Component for App {
                     })
                 }).for_each(|key| {
                     let node = self.dia_nodes.0.get(key).unwrap();
-                    let model::Node { cname, cid, ..} = node;
-                    let key = model::NodeKey(cname.clone(), server.clone());
+                    let model::DrawioNode { tname, cid, ..} = node;
+                    let key = model::NodeKey(tname.clone(), server.clone());
 
                     if let Some(style) = self.dia_styles.get(&key) {
                         style.set_inner_html(&format!(r#"{} {{
-                            /* container {cname} not available */
+                            /* container {tname} not available */
                             filter: brightness(11%) contrast(11%);
                         }}"#, utils::cid_into_css_selector(cid)));
                     } else {
-                        info!(format!("container {} not found in server response, but on diagram", cname.clone()));
+                        info!(format!("container {} not found in server response, but on diagram", tname.clone()));
                     }
                 });
 
-                // <gloo::storage::SessionStorage as gloo::storage::Storage>::set(KEY_DEBUG_CUR_STATE_SESSION_STORAGE, self.cur_state.clone()).unwrap();
+                #[cfg(debug_assertions)]
+                if let Err(e) = <SessionStorage as Storage>::set(KEY_DEBUG_CUR_STATE_SESSION_STORAGE, self.cur_state.clone()) {
+                    error!(format!("failed to set cur_state to local storage: {:?}", e));
+                }
             },
             Msg::Disconnected => {
                 self.dia_nodes = model::Nodes(HashMap::new());
@@ -279,7 +290,7 @@ impl Component for App {
                 let id = utils::parse_cid_from_svg_rotation(transform);
                 info!(format!("id {}", id));
 
-                let cname = self.dia_nodes.0.iter().find_map(|(key, node)| {
+                let tname = self.dia_nodes.0.iter().find_map(|(key, node)| {
                     if node.cid == id {
                         Some(key.0.clone())
                     } else {
@@ -287,7 +298,7 @@ impl Component for App {
                     }
                 }).unwrap_or("".to_owned());
 
-                if let Some(text) = self.cur_state.get(&model::NodeKey(cname, "ccdev.bdo.ru".to_owned())) {
+                if let Some(text) = self.cur_state.get(&model::NodeKey(tname, "ccdev.bdo.ru".to_owned())) {
                     info!(format!("text {} -> {:?}", id, text));
                     self.tooltip_text = format!("{:#?}", text);
                 } else {
