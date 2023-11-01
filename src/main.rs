@@ -36,7 +36,11 @@ async fn main() -> Result<(), Error> {
             server::start_server().await?;
         },
         Some(Commands::Gen) => {
-            println!("ehlo");
+            let f_containers = docker::get_containers();
+
+            let str = serde_json::to_string(&f_containers).unwrap();
+
+            println!("{}", str);
         }
     }
 

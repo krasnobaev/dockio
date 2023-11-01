@@ -1,5 +1,6 @@
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
+use std::process::Command;
+
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,4 +72,31 @@ impl Into<ContainerFront> for Container {
             status: self.status.clone(),
         }
     }
+}
+
+pub fn get_containers() -> Vec<ContainerFront> {
+    // docker ps --format json
+    let output = Command::new("docker")
+        .arg("ps")
+        .arg("--no-trunc")
+        .arg("--format")
+        // .arg("json") // Docker 21+
+        .arg("{{json .}}") // Docker 20 workaround
+        .output()
+        .expect("Failed to execute command");
+
+    let str = match std::str::from_utf8(&output.stdout) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+    let containers = str.lines().map(|row| {
+        // log::debug!("row: {}", row);
+        let deserialized: Container = serde_json::from_str(&row).unwrap();
+        deserialized
+    }).collect::<Vec<_>>();
+    let f_containers: Vec<ContainerFront> = containers.iter().map(|c| {
+        c.into()
+    }).collect::<Vec<_>>();
+
+    f_containers
 }
