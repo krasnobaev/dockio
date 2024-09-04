@@ -23,5 +23,7 @@ tokio-tungstenite = "0.20.1"
 # http
 hyper = { version = "0.14.27", features = ["full"] }
 
+drawio-gen = { path = "./drawio-gen" }
+
 [[example]]
 name = "ws_echo"

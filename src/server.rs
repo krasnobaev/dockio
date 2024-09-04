@@ -106,7 +106,6 @@ async fn handle_ws(peer_map: PeerMap, stream: TcpStream, addr: SocketAddr) {
     let (tx, rx) = unbounded();
 
     let file = read_file("dia.drawio.svg").await;
-    // let file = read_file("/home/sypwex/prj/ubsl/ccompliance/doc/asset/servers.drawio.svg").await;
     let msg = Message::Binary(file);
     if let Err(e) = tx.unbounded_send(msg) {
         log::error!("{}", e);

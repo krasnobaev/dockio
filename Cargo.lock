@@ -229,6 +229,7 @@ name = "dockio"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "drawio-gen",
  "env_logger",
  "futures-channel",
  "futures-util",
@@ -239,6 +240,13 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite",
+]
+
+[[package]]
+name = "drawio-gen"
+version = "0.1.0"
+dependencies = [
+ "quick-xml",
 ]
 
 [[package]]
@@ -641,6 +649,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b1106fec09662ec6dd98ccac0f81cef56984d0b49f75c92d8cbad76e20c005c"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

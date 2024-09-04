@@ -298,7 +298,7 @@ impl Component for App {
                     }
                 }).unwrap_or("".to_owned());
 
-                if let Some(text) = self.cur_state.get(&model::NodeKey(tname, "ccdev.bdo.ru".to_owned())) {
+                if let Some(text) = self.cur_state.get(&model::NodeKey(tname, "blaster.local".to_owned())) {
                     info!(format!("text {} -> {:?}", id, text));
                     self.tooltip_text = format!("{:#?}", text);
                 } else {
